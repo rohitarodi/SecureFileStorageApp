@@ -1,0 +1,79 @@
+swagger: "2.0"
+info:
+  title: "Secure File Storage System"
+  description: "API for securely uploading, storing, and retrieving encrypted files in Azure Blob Storage."
+  version: "1.0.0"
+
+host: "127.0.0.1:5000"
+schemes:
+  - "http"
+
+paths:
+  /upload:
+    post:
+      tags:
+        - "File Upload"
+      summary: "Upload an encrypted file to Azure Blob Storage"
+      consumes:
+        - "multipart/form-data"
+      parameters:
+        - name: "file"
+          in: "formData"
+          required: true
+          type: "file"
+          description: "The file to upload (it will be encrypted before storing)"
+      responses:
+        200:
+          description: "File uploaded successfully"
+          schema:
+            type: "object"
+            properties:
+              message:
+                type: "string"
+                example: "File uploaded successfully"
+              filename:
+                type: "string"
+                example: "example.txt"
+        400:
+          description: "Invalid file input"
+        500:
+          description: "Internal server error"
+
+  /download:
+    get:
+      tags:
+        - "File Download"
+      summary: "Download and decrypt a file from Azure Blob Storage"
+      parameters:
+        - name: "filename"
+          in: "query"
+          required: true
+          type: "string"
+          description: "Name of the file to download"
+      responses:
+        200:
+          description: "Decrypted file content"
+          content:
+            application/octet-stream:
+              schema:
+                type: "string"
+                format: "binary"
+        400:
+          description: "Missing filename parameter"
+        500:
+          description: "Internal server error"
+
+  /download_save:
+    get:
+      tags:
+        - "File Download & Save"
+      summary: "Download, decrypt, and save a file on the server"
+      parameters:
+        - name: "filename"
+          in: "query"
+          required: true
+          type: "string"
+          description: "Name of the file to download and save"
+      responses:
+        200:
+          description: "File saved successfully on the server"
