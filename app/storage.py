@@ -1,13 +1,14 @@
 from azure.storage.blob import BlobServiceClient
+from key_vault import AZURE_STORAGE_CONNECTION_STRING, AZURE_STORAGE_CONTAINER
 
-blob_service_client = BlobServiceClient.from_connection_string("DefaultEndpointsProtocol=https;AccountName=stgsustudentdata001;AccountKey=WNm4ZCLuS/ut7pf/5vO3bDVTEdKh5dvrastyVbEQUGiNBcVP70D1S/Nnl0VXSIRnfpTZYYedF9di+AStzSzE2A==;EndpointSuffix=core.windows.net")
-container_name = "encrypted-files"
+# Initialize Blob Service Client
+blob_service_client = BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
 
 def upload_file(filename, encrypted_data):
-    blob_client = blob_service_client.get_blob_client(container=container_name, blob=filename)
-    blob_client.upload_blob(encrypted_data)
+    blob_client = blob_service_client.get_blob_client(container=AZURE_STORAGE_CONTAINER, blob=filename)
+    blob_client.upload_blob(encrypted_data, overwrite=True)
     return blob_client.url
 
-def download_file(file_url):
-    blob_client = blob_service_client.get_blob_client(container=container_name, blob=file_url.split('/')[-1])
+def download_file(filename):
+    blob_client = blob_service_client.get_blob_client(container=AZURE_STORAGE_CONTAINER, blob=filename)
     return blob_client.download_blob().readall()

@@ -10,34 +10,24 @@ schemes:
 
 paths:
   /upload:
-    post:
-      tags:
-        - "File Upload"
-      summary: "Upload an encrypted file to Azure Blob Storage"
-      consumes:
-        - "multipart/form-data"
-      parameters:
-        - name: "file"
-          in: "formData"
-          required: true
-          type: "file"
-          description: "The file to upload (it will be encrypted before storing)"
-      responses:
-        200:
-          description: "File uploaded successfully"
-          schema:
-            type: "object"
-            properties:
-              message:
-                type: "string"
-                example: "File uploaded successfully"
-              filename:
-                type: "string"
-                example: "example.txt"
-        400:
-          description: "Invalid file input"
-        500:
-          description: "Internal server error"
+  post:
+    tags:
+      - "File Upload"
+    consumes:
+      - "multipart/form-data"
+    parameters:
+      - name: "file"
+        in: "formData"
+        required: true
+        type: "file"
+        description: "File to be uploaded"
+    responses:
+      200:
+        description: "File uploaded successfully"
+      400:
+        description: "Bad request"
+      500:
+        description: "Internal server error"
 
   /download:
     get:

@@ -3,6 +3,10 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.backends import default_backend
 import os
 import base64
+from dotenv import load_dotenv
+
+# Ensure environment variables are loaded
+load_dotenv()
 
 # Load a 32-byte encryption key from the environment
 ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY")
