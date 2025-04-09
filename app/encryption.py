@@ -1,62 +1,36 @@
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from cryptography.hazmat.primitives import padding
-from cryptography.hazmat.backends import default_backend
 import os
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import padding
+import base64
+import secrets
+
 
 def generate_aes_key():
-    """
-    Generates a random 256-bit AES key.
-    
-    Returns:
-        bytes: AES key (32 bytes)
-    """
-    return os.urandom(32)  # 256-bit AES key
+    return secrets.token_bytes(32)  # AES-256
 
-def encrypt_data(data, aes_key):
-    """
-    Encrypts data using AES-256 encryption.
-    
-    Args:
-        data (bytes): Data to encrypt.
-        aes_key (bytes): 32-byte AES key.
 
-    Returns:
-        bytes: Encrypted data including IV.
-    """
-    iv = os.urandom(16)  # Generate a random IV (16 bytes)
-
-    # Apply PKCS7 padding to ensure the data is a multiple of block size (16 bytes)
-    padder = padding.PKCS7(algorithms.AES.block_size).padder()
+def encrypt_data(data, key):
+    iv = secrets.token_bytes(16)
+    padder = padding.PKCS7(128).padder()
     padded_data = padder.update(data) + padder.finalize()
 
-    # Encrypt the data
-    cipher = Cipher(algorithms.AES(aes_key), modes.CBC(iv), backend=default_backend())
+    cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
     encryptor = cipher.encryptor()
     encrypted_data = encryptor.update(padded_data) + encryptor.finalize()
 
-    return iv + encrypted_data  # Combine IV and encrypted data
+    return iv + encrypted_data
 
-def decrypt_data(encrypted_data, aes_key):
-    """
-    Decrypts AES-256 encrypted data.
-    
-    Args:
-        encrypted_data (bytes): Data to decrypt (IV + Encrypted Data).
-        aes_key (bytes): 32-byte AES key.
 
-    Returns:
-        bytes: Decrypted plaintext data.
-    """
-    iv = encrypted_data[:16]  # Extract IV
-    encrypted_content = encrypted_data[16:]
+def decrypt_data(encrypted_data, key):
+    iv = encrypted_data[:16]
+    ciphertext = encrypted_data[16:]
 
-    # Decrypt the data
-    cipher = Cipher(algorithms.AES(aes_key), modes.CBC(iv), backend=default_backend())
+    cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
     decryptor = cipher.decryptor()
-    decrypted_padded_data = decryptor.update(encrypted_content) + decryptor.finalize()
+    padded_data = decryptor.update(ciphertext) + decryptor.finalize()
 
-    # Remove padding
-    unpadder = padding.PKCS7(algorithms.AES.block_size).unpadder()
-    decrypted_data = unpadder.update(decrypted_padded_data) + unpadder.finalize()
+    unpadder = padding.PKCS7(128).unpadder()
+    data = unpadder.update(padded_data) + unpadder.finalize()
 
-    return decrypted_data
+    return data

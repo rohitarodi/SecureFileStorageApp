@@ -1,32 +1,15 @@
-from flask import Flask, request, jsonify, send_file
+# main.py
+from flask import Flask, request, jsonify
 from flasgger import Swagger
 from azure.storage.blob import BlobServiceClient
 from encryption import encrypt_data, decrypt_data, generate_aes_key
-from key_vault import AZURE_STORAGE_CONNECTION_STRING, AZURE_STORAGE_CONTAINER, COSMOS_MONGO_CONNECTION_STRING
-from key_vault import encrypt_aes_key
-from database import store_encrypted_key
+from key_vault import AZURE_STORAGE_CONNECTION_STRING, AZURE_STORAGE_CONTAINER, encrypt_aes_key, decrypt_aes_key
+from database import store_encrypted_key, get_encrypted_key
 import os, re
-# from dotenv import load_dotenv
 
-# Ensure environment variables are loaded
-# load_dotenv()
-
-# ✅ Ensure container name is properly formatted
-# AZURE_STORAGE_CONTAINER = os.getenv("AZURE_STORAGE_CONTAINER", "").strip().replace('"', '').replace("'", "")
-
-print(f"✅ Cleaned Azure Container Name: [{AZURE_STORAGE_CONTAINER}]")  # Debugging
-
-# Debug - Check if ENV variables are loaded
-# print(f"Storage Connection String: {os.getenv('AZURE_STORAGE_CONNECTION_STRING')}")
-# print(f"Encryption Key: {os.getenv('ENCRYPTION_KEY')}")  # Should not be None
-
-
-# Initialize Flask app
 app = Flask(__name__)
-# swagger = Swagger(app, template_file="swagger.yaml")  # Load API spec from external file
 swagger = Swagger(app)
 
-# Initialize Blob Service Client
 blob_service_client = BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
 
 @app.route('/upload', methods=['POST'])
@@ -47,20 +30,11 @@ def upload_file():
     responses:
       200:
         description: File uploaded successfully
-        schema:
-          type: object
-          properties:
-            message:
-              type: string
-              example: "File uploaded successfully"
-            filename:
-              type: string
-              example: "example.pdf"
       400:
-        description: Bad Request (Invalid input)
+        description: Bad Request
       500:
         description: Internal Server Error
-    """ 
+    """
     if 'file' not in request.files:
         return jsonify({"error": "No file part in the request"}), 400
 
@@ -69,80 +43,20 @@ def upload_file():
         return jsonify({"error": "No selected file"}), 400
 
     try:
-        print(f"🔹 Received file: {file.filename}")
-
-        # ✅ Sanitize filename: Remove special characters & replace spaces with '_'
         sanitized_filename = re.sub(r'[^a-zA-Z0-9_.-]', '_', file.filename.strip().replace('"', ''))
-
-        # Debugging print statements
-        print(f"✅ Sanitized filename: {sanitized_filename}")
         aes_key = generate_aes_key()
-        encrypted_data = encrypt_data(file.read(), aes_key)  # Encrypt file data
-        print("✅ Encryption successful")
+        encrypted_data = encrypt_data(file.read(), aes_key)
         encrypted_aes_key = encrypt_aes_key(aes_key)
-        print("✅ Encryption of AES Key successful")
+        store_encrypted_key(sanitized_filename, encrypted_aes_key)
 
-        # Get blob client
         blob_client = blob_service_client.get_blob_client(container=AZURE_STORAGE_CONTAINER, blob=sanitized_filename)
-        # Debugging: Print the Blob URL
-        print(f"🔹 Blob URL: {blob_client.url}")
-
-        # Upload encrypted file
         blob_client.upload_blob(encrypted_data, overwrite=True)
 
-        print(f"✅ Upload successful: {sanitized_filename}")
         return jsonify({"message": "File uploaded successfully", "filename": sanitized_filename}), 200
 
     except Exception as e:
-        print(f"❌ Upload failed: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
-    
-@app.route('/download', methods=['GET'])
-def download_file():
-    """
-    Downloads and decrypts a file from Azure Blob Storage.
-    ---
-    tags:
-      - File Download
-    parameters:
-      - name: filename
-        in: query
-        type: string
-        required: true
-        description: Name of the file to download
-    responses:
-      200:
-        description: Decrypted file content
-        content:
-          application/octet-stream:
-            schema:
-              type: string
-              format: binary
-      400:
-        description: Bad Request - Missing filename parameter
-      404:
-        description: File not found
-      500:
-        description: Internal server error
-    """
-    filename = request.args.get('filename')
-
-    if not filename:
-        return jsonify({"error": "Filename parameter is required"}), 400
-
-    try:
-        blob_client = blob_service_client.get_blob_client(container=AZURE_STORAGE_CONTAINER, blob=filename)
-
-        stream = blob_client.download_blob()
-        encrypted_data = stream.readall()
-
-        decrypted_data = decrypt_data(encrypted_data)
-        return decrypted_data, 200, {'Content-Type': 'application/octet-stream',
-                                     'Content-Disposition': f'attachment; filename="{filename}"'}
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
 @app.route('/download_save', methods=['GET'])
 def download_file_save():
     """
@@ -159,85 +73,36 @@ def download_file_save():
     responses:
       200:
         description: File saved successfully on the server
-        schema:
-          type: object
-          properties:
-            message:
-              type: string
-              example: "File saved at downloads/example.txt"
       400:
         description: Missing filename parameter
-      404:
-        description: File not found
       500:
         description: Internal server error
     """
     filename = request.args.get('filename')
-
     if not filename:
         return jsonify({"error": "Filename parameter is required"}), 400
 
     try:
-        # Get blob client
         blob_client = blob_service_client.get_blob_client(container=AZURE_STORAGE_CONTAINER, blob=filename)
-
-        # Download encrypted file
         stream = blob_client.download_blob()
         encrypted_data = stream.readall()
 
-        # Decrypt file data
-        decrypted_data = decrypt_data(encrypted_data)
+        encrypted_aes_key = get_encrypted_key(filename)
+        aes_key = decrypt_aes_key(encrypted_aes_key)
+        decrypted_data = decrypt_data(encrypted_data, aes_key)
 
-        # Save the decrypted file on the server
+        # save_folder = "A:\\Masters\\SEM 2\\Cryptography\\Project\\Files"
         save_folder = "downloads"
-        os.makedirs(save_folder, exist_ok=True)  # Ensure directory exists
+        os.makedirs(save_folder, exist_ok=True)
         save_path = os.path.join(save_folder, filename)
 
         with open(save_path, "wb") as file:
             file.write(decrypted_data)
 
-        print(f"✅ File saved at {save_path}")
-
         return jsonify({"message": f"File saved at {save_path}"}), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-    
+
 if __name__ == '__main__':
     app.run(debug=True)
-
-
-app = Flask(__name__)
-
-# Initialize Azure Blob Storage
-blob_service_client = BlobServiceClient.from_connection_string(os.getenv("AZURE_STORAGE_CONNECTION_STRING"))
-AZURE_STORAGE_CONTAINER = os.getenv("AZURE_STORAGE_CONTAINER")
-
-@app.route('/upload', methods=['POST'])
-def upload_file():
-    """Uploads an encrypted file using AES and encrypts AES key using RSA."""
-    if 'file' not in request.files:
-        return jsonify({"error": "No file part in the request"}), 400
-
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({"error": "No selected file"}), 400
-
-    try:
-        sanitized_filename = re.sub(r'[^a-zA-Z0-9_.-]', '_', file.filename.strip())
-        aes_key = generate_aes_key()  # Generate new AES key for the file
-        encrypted_data = encrypt_data(file.read(), aes_key)  # Encrypt file data
-
-        encrypted_aes_key = encrypt_aes_key(aes_key)  # Encrypt AES key with RSA
-
-        # Store Encrypted AES Key in CosmosDB
-        store_encrypted_key(sanitized_filename, encrypted_aes_key)
-
-        # Upload encrypted file to Blob
-        blob_client = blob_service_client.get_blob_client(container=AZURE_STORAGE_CONTAINER, blob=sanitized_filename)
-        blob_client.upload_blob(encrypted_data, overwrite=True)
-
-        return jsonify({"message": "File uploaded successfully", "filename": sanitized_filename}), 200
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
