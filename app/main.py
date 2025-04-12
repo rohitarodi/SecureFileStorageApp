@@ -91,8 +91,8 @@ def download_file_save():
         aes_key = decrypt_aes_key(encrypted_aes_key)
         decrypted_data = decrypt_data(encrypted_data, aes_key)
 
-        # save_folder = "A:\\Masters\\SEM 2\\Cryptography\\Project\\Files"
-        save_folder = "downloads"
+        save_folder = "A:\\Masters\\SEM 2\\Cryptography\\Project\\Files"
+        # save_folder = "downloads"
         os.makedirs(save_folder, exist_ok=True)
         save_path = os.path.join(save_folder, filename)
 
@@ -103,6 +103,39 @@ def download_file_save():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+  
+@app.route('/list_files', methods=['GET'])
+def list_files():
+    """
+    Lists all files available in Azure Blob Storage.
+    ---
+    tags:
+      - File Listing
+    responses:
+      200:
+        description: A list of filenames
+        schema:
+          type: object
+          properties:
+            files:
+              type: array
+              items:
+                type: string
+              example: ["file1.pdf", "file2.docx"]
+      500:
+        description: Internal server error
+    """
+    try:
+        container_client = blob_service_client.get_container_client(AZURE_STORAGE_CONTAINER)
+        blob_list = container_client.list_blobs()
+
+        filenames = [blob.name for blob in blob_list]
+        return jsonify({"files": filenames}), 200
+
+    except Exception as e:
+        print(f"❌ Error listing files: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
 
 if __name__ == '__main__':
     app.run(debug=True)
