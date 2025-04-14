@@ -1,8 +1,9 @@
 from pymongo import MongoClient
+from key_vault import COSMOS_MONGO_CONNECTION_STRING
 import base64
 import os
 
-COSMOS_MONGO_CONNECTION_STRING = os.getenv("COSMOS_MONGO_CONNECTION_STRING")
+# COSMOS_MONGO_CONNECTION_STRING = os.getenv("COSMOS_MONGO_CONNECTION_STRING")
 client = MongoClient(COSMOS_MONGO_CONNECTION_STRING)
 db = client.secure_storage
 aes_keys_collection = db.aes_keys
