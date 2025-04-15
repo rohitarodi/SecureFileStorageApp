@@ -1,11 +1,11 @@
 # main.py
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 from flasgger import Swagger
 from azure.storage.blob import BlobServiceClient
 from encryption import encrypt_data, decrypt_data, generate_aes_key
 from key_vault import AZURE_STORAGE_CONNECTION_STRING, AZURE_STORAGE_CONTAINER, encrypt_aes_key, decrypt_aes_key
 from database import store_encrypted_key, get_encrypted_key
-import os, re
+import os, re, io
 
 app = Flask(__name__)
 swagger = Swagger(app)
@@ -99,7 +99,12 @@ def download_file_save():
         with open(save_path, "wb") as file:
             file.write(decrypted_data)
 
-        return jsonify({"message": f"File saved at {save_path}"}), 200
+        # return jsonify({"message": f"File saved at {save_path}"}), 200
+        return send_file(io.BytesIO(decrypted_data),
+          as_attachment=True,
+          download_name=filename,
+          mimetype="application/octet-stream"
+        )
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500

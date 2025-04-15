@@ -41,13 +41,24 @@ if files_list:
     if st.button("Download File"):
         try:
             response = requests.get(f"{BACKEND_URL}/download_save", params={"filename": selected_file})
+            # if response.status_code == 200:
+            #     # save_path = os.path.join("downloads", selected_file)
+            #     save_path = os.path.join("A:\\Masters\\SEM 2\\Cryptography\\Project\\Files", selected_file)
+            #     os.makedirs("A:\\Masters\\SEM 2\\Cryptography\\Project\\Files", exist_ok=True)
+            #     with open(save_path, "wb") as file:
+            #         file.write(response.content)
+            #     st.success(f"✅ File downloaded and saved as: {save_path}")
+            #     st.download_button(label="Download File", data=response.content, file_name=selected_file)
+            # else:
+            #     error_msg = response.text or "File not found"
+            #     st.error(f"❌ Download failed: {error_msg}")
             if response.status_code == 200:
-                save_path = os.path.join("downloads", selected_file)
-                os.makedirs("downloads", exist_ok=True)
-                with open(save_path, "wb") as file:
-                    file.write(response.content)
-                st.success(f"✅ File downloaded and saved as: {save_path}")
-                st.download_button(label="Download File", data=response.content, file_name=selected_file)
+                st.download_button(
+                    label="⬇️ Click to Download File",
+                    data=response.content,
+                    file_name=selected_file,
+                    mime="application/octet-stream"
+                )
             else:
                 error_msg = response.text or "File not found"
                 st.error(f"❌ Download failed: {error_msg}")
